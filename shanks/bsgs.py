@@ -1,7 +1,7 @@
 import math
 
 from euclidean.eea import inverse
-from fastbin.src.my_file import fast_power
+from fastbin.exp import fast_power
 
 
 def bsgs(Y, g, N):
