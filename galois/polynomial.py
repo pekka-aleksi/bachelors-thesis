@@ -229,19 +229,10 @@ class Polynomial:
 
     def __ne__(self, other):
 
-        #        ax^3 + bx + c
-        # dx^4 +        cx
-
-        #  both_keys = {1}
-        #  a_zeros = {0, 3}
-        #  b_zeros = {4}
-
         both_keys = self.monomials.keys() & other.monomials.keys()
-        # print(both_keys)
         a_zeros = tuple(self.monomials.keys() - both_keys)
         b_zeros = tuple(other.monomials.keys() - both_keys)
 
-        # nollas aste ei ole ongelma, vaan nollakerroin
 
         for degree in a_zeros:
             if self.monomials[degree] != Monomial(Coefficient(0), new_degree=Degree(degree)):
@@ -287,28 +278,7 @@ class Polynomial:
         if deg_num < deg_den:
             return 0, copy.deepcopy(other)
 
-        numerator = copy.deepcopy(self)
-
-        zeros = Polynomial.get_empty_degree_n(numerator.get_degree(nonzero=True))
-        # print(len(numerator.monomials))
-        numerator = numerator + zeros
-        # print(len(numerator.monomials))
-        #divisor = copy.deepcopy(other)
-
-        remainder = copy.deepcopy(other)
-        # print("Remainder:", *remainder.monomials.values(), "vs. Zero items():", *Zero.monomials.values())
-
-        # print("divisor.get_degree()", divisor.get_degree())
-        # print("remainder != Zero", remainder != Zero, remainder == Zero)
-        print(remainder, type(remainder))
         quotient = Polynomial.from_tuples((0,))
-
-        print("Remainder degree", remainder.get_degree(), "divisor degree", other.get_degree())
-        #print(remainder != Zero, remainder == Zero)
-
-        i = 0
-        NUM_terms = numerator.get_n_leading_terms(deg_num)
-
 
         remainder = copy.deepcopy(self)
         denominator = copy.deepcopy(other)
@@ -322,23 +292,20 @@ class Polynomial:
             print("while loop, Remainder:", remainder, "vs. Zero items():",
                   *Zero.monomials.values())
 
-            # we always divide by the same thing, but
-            # the next term to divide comes from the previous round
-
             uusi_termi = jaettava_termi / jakava_termi
             new_polyterm = Polynomial.from_monomials({uusi_termi.get_degree(): uusi_termi})
 
             print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
-            print("\tjakava_termi", jakava_termi)
+            print("\tjakava_termi", jakava_termi, "ja koko jakaja", denominator)
             print("-"*80)
             print("\tnew_polyterm", new_polyterm)
-            print("\tquotient", quotient)#, "divisor", divisor)
+            print("\tquotient", quotient)
             quotient = quotient + new_polyterm
             print("\tquotient+new_polyterm:", quotient)
             print("\tremainder", remainder)
-            remainder = remainder - new_polyterm * Polynomial.from_monomials({jakava_termi.get_degree(): jakava_termi})
-            print("\tremainder - new_polyterm*quotient", remainder)
-            #print("REMAINDER", remainder, "JAETTAVA DEGREE", remainder.get_degree(nonzero=True), "ja", denominator.get_degree(nonzero=True))
+            remainder = remainder - new_polyterm * denominator
+            print("\t\tnew_polyterm*denominator", new_polyterm*denominator)
+            print("\tremainder - new_polyterm*denominator", remainder)
             print()
 
         return quotient, remainder
@@ -401,13 +368,13 @@ if __name__ == '__main__':
 
 
     #B = poly1
-    A = poly0 + poly1 + poly2
-    B = poly1
+    A = poly1 + poly2*poly2*poly2
+    B = poly0 + poly1 + poly2
 
     #print(poly2.get_degree(nonzero=True))
     q, r = divmod(A, B)
 
-    print(f"({A}) / {B} = ({q}) * ({B}) + {r}")
+    print(f"({A}) / ({B}) = ({q}) * ({B}) + {r}")
 
 
     # print("q", q, type(q))
