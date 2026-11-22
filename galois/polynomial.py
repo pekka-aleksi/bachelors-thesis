@@ -1,5 +1,6 @@
 import copy
 
+
 class Coefficient:
     def __init__(self, new_value=0):
         self.value: int = new_value
@@ -35,6 +36,11 @@ class Coefficient:
     def get_coefficient(self):
         return self.value
 
+    def __ne__(self, other):
+
+        diff = abs(self.value - other.value)
+        return diff >= 1e-7
+
 
 class Degree:
     def __init__(self, new_value=0):
@@ -67,37 +73,8 @@ class Degree:
     def get_degree(self):
         return self.value
 
-
-"""
-class Indeterminate:
-    def __init__(self, new_degree=Degree()):
-        self.X: Degree = new_degree
-
-    def __mul__(self, other):
-        new_degree = self.X + other.X
-        return Indeterminate(new_degree=new_degree)
-
-    def __eq__(self, other):
-        if isinstance(other, Indeterminate):
-            return self.X == other.X
-        elif isinstance(other, Degree):
-            return self.X == other
-        elif isinstance(other, int):
-            return self.X == Degree(new_value=other)
-
-    def __truediv__(self, other):
-        new_degree = self.X / other.X
-        return Indeterminate(new_degree=new_degree)
-
-    def __gt__(self, other):
-        return self.X > other.X
-
-    def __str__(self):
-        return f"{self.X}"
-
-    def get_degree(self):
-        return self.X.get_degree()
-"""
+    def __ne__(self, other):
+        return self.value != other.value
 
 
 class Monomial:
@@ -126,7 +103,7 @@ class Monomial:
                 return Monomial(new_coefficient=new_coefficient,
                                 new_degree=Degree(new_value=self.degree.get_degree()))
             else:  # different degree
-                return other
+                return copy.deepcopy(other)
 
     def __sub__(self, other):
         if self.degree == other.degree:
@@ -155,6 +132,12 @@ class Monomial:
     def __bool__(self):
         return bool(self.a)
 
+    def __ne__(self, other):
+        different_degree = self.degree != other.degree
+        different_coeff = self.a != other.a
+
+        return different_coeff or different_degree
+
     def get_degree(self):
         return self.degree.get_degree()
 
@@ -178,18 +161,6 @@ class Polynomial:
 
     @classmethod
     def from_monomials(cls, new_monomials: dict[int, Monomial]):
-
-        max_degree = max(new_monomials)
-        LEN = len(new_monomials)
-
-        #print("max_degree", max_degree, "LEN", LEN)
-
-        if LEN != max_degree + 1:
-            #print("we're missing some degree(s) from:", *new_monomials.items())
-
-            poly = Polynomial.get_empty_degree_n(max_degree + 1)
-
-            #print(new_monomials)
 
         return cls(new_monomials, _token=Polynomial._TOKEN)
 
@@ -245,27 +216,46 @@ class Polynomial:
             return Polynomial.from_monomials(new_monomials)
 
     def __sub__(self, other):
-        new_monomials = {}
+        new_monomials = copy.deepcopy(self.monomials)
 
         for degree, B in other.monomials.items():
-            A = self.monomials[degree]
+            A = self.monomials.get(degree)
+            if A is None:
+                A = Monomial(Coefficient(0), new_degree=Degree(degree))
             new_monomials[degree] = A - B
 
         return Polynomial.from_monomials(new_monomials)
 
+
     def __ne__(self, other):
 
-        A = self.get_monomials_from_highest_deg()
-        B = other.get_monomials_from_highest_deg()
+        #        ax^3 + bx + c
+        # dx^4 +        cx
 
-        NA = len(A)
-        NB = len(B)
+        #  both_keys = {1}
+        #  a_zeros = {0, 3}
+        #  b_zeros = {4}
 
-        if NA != NB:
-            return True
+        both_keys = self.monomials.keys() & other.monomials.keys()
+        # print(both_keys)
+        a_zeros = tuple(self.monomials.keys() - both_keys)
+        b_zeros = tuple(other.monomials.keys() - both_keys)
 
-        for i in range(NA):
-            if A[i] != B[i]:
+        # nollas aste ei ole ongelma, vaan nollakerroin
+
+        for degree in a_zeros:
+            if self.monomials[degree] != Monomial(Coefficient(0), new_degree=Degree(degree)):
+                return True
+
+        for degree in b_zeros:
+            if other.monomials[degree] != Monomial(Coefficient(0), new_degree=Degree(degree)):
+                return True
+
+        for degree in both_keys:
+            A = self.monomials[degree]
+            B = other.monomials[degree]
+            print("A", A, "B", B)
+            if A != B:
                 return True
 
         return False
@@ -277,64 +267,93 @@ class Polynomial:
         for aXn in self.monomials.values():
             for bXm in other.monomials.values():
                 result = aXn * bXm
-                print("multiplication result for", aXn, "*", bXm, "=", result, "is degree", result.get_degree())
                 new_monomials[result.get_degree()] = result
         return Polynomial.from_monomials(new_monomials)
 
-    def get_monomials_from_highest_deg(self):
-        return sorted(self.monomials.items(), key=lambda x: x[0], reverse=True)
+    def get_monomials_from_highest_deg(self, nonzero=True):
+        return sorted(filter(lambda x: x[1], self.monomials.items()), key=lambda x: x[0], reverse=True)
 
-    def get_two_leading_terms(self):
+    def get_n_leading_terms(self, n):
         highest = self.get_monomials_from_highest_deg()
-        return highest[0:2]
+        return highest[0:n+1]
 
     def __divmod__(self, other):
 
-        deg_num = self.get_degree()
-        deg_den = other.get_degree()
+        Zero = Polynomial.from_tuples((0,))
+
+        deg_num = self.get_degree(nonzero=True)
+        deg_den = other.get_degree(nonzero=True)
 
         if deg_num < deg_den:
-            return 0, other
+            return 0, copy.deepcopy(other)
 
-        import copy
+        numerator = copy.deepcopy(self)
 
-        NUM = copy.deepcopy(self)
-        DEN = copy.deepcopy(other)
+        zeros = Polynomial.get_empty_degree_n(numerator.get_degree(nonzero=True))
+        # print(len(numerator.monomials))
+        numerator = numerator + zeros
+        # print(len(numerator.monomials))
+        #divisor = copy.deepcopy(other)
 
+        remainder = copy.deepcopy(other)
+        # print("Remainder:", *remainder.monomials.values(), "vs. Zero items():", *Zero.monomials.values())
+
+        # print("divisor.get_degree()", divisor.get_degree())
+        # print("remainder != Zero", remainder != Zero, remainder == Zero)
+        print(remainder, type(remainder))
         quotient = Polynomial.from_tuples((0,))
-        Zero = Polynomial.from_tuples((0,))
-        remainder = Polynomial.from_monomials(self.monomials)
 
-        #print(remainder, type(remainder))
+        print("Remainder degree", remainder.get_degree(), "divisor degree", other.get_degree())
+        #print(remainder != Zero, remainder == Zero)
 
-        # huom. tyhjä polynomi ei vertaannu. lisäksi vertailuoperaattoreita puuttuu ==
-        while remainder != Zero and remainder.get_degree() >= DEN.get_degree():
+        i = 0
+        NUM_terms = numerator.get_n_leading_terms(deg_num)
 
-            monomials_num = Polynomial.from_monomials(NUM.monomials)
-            monomials_den = Polynomial.from_monomials(DEN.monomials)
 
-            try:
-                tmp = Polynomial.from_monomials(tuple([monomials_num[0] / monomials_den[0]]))
-                #print(tmp)
-            except IndexError:
-                tmp = Polynomial.from_tuples((0,))
-            except ZeroDivisionError:
-                return quotient, Zero
+        remainder = copy.deepcopy(self)
+        denominator = copy.deepcopy(other)
 
-            quotient = quotient + tmp
-            remainder = remainder - tmp * DEN  # tässä kerrotaan kenties väärinpäin kokonaan?
+        _, jakava_termi = denominator.get_n_leading_terms(deg_den)[0]
 
-            #print("REMAINDER", quotient, tmp, DEN, remainder, remainder != Zero, remainder == Zero)
-            NUM.monomials = NUM.monomials[1:]
-            DEN.monomials = DEN.monomials[1:]
+        while remainder != Zero and remainder.get_degree() >= denominator.get_degree():
+
+            _, jaettava_termi = remainder.get_n_leading_terms(remainder.get_degree())[0]
+
+            print("while loop, Remainder:", remainder, "vs. Zero items():",
+                  *Zero.monomials.values())
+
+            # we always divide by the same thing, but
+            # the next term to divide comes from the previous round
+
+            uusi_termi = jaettava_termi / jakava_termi
+            new_polyterm = Polynomial.from_monomials({uusi_termi.get_degree(): uusi_termi})
+
+            print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
+            print("\tjakava_termi", jakava_termi)
+            print("-"*80)
+            print("\tnew_polyterm", new_polyterm)
+            print("\tquotient", quotient)#, "divisor", divisor)
+            quotient = quotient + new_polyterm
+            print("\tquotient+new_polyterm:", quotient)
+            print("\tremainder", remainder)
+            remainder = remainder - new_polyterm * Polynomial.from_monomials({jakava_termi.get_degree(): jakava_termi})
+            print("\tremainder - new_polyterm*quotient", remainder)
+            #print("REMAINDER", remainder, "JAETTAVA DEGREE", remainder.get_degree(nonzero=True), "ja", denominator.get_degree(nonzero=True))
+            print()
 
         return quotient, remainder
 
-    def get_degree(self):
-        try:
-            highest = max(self.monomials)
-        except ValueError:
-            highest = 0
+    def get_degree(self, nonzero=True):
+
+        if nonzero:
+            data = {degree: monomial.get_coefficient() for degree, monomial in self.monomials.items() if monomial}
+        else:
+            data = self.monomials
+
+        #try:
+        highest = max(data)
+        #except ValueError:
+        #    highest = 0
         return highest
 
     def __str__(self):
@@ -369,18 +388,27 @@ if __name__ == '__main__':
     poly1 = Polynomial.from_monomials({1: X})
     poly2 = Polynomial.from_monomials({2: X2})
 
-    print("double:", poly1 + poly1)
-    print("zero:", poly1 - poly1)
+    # print("double:", poly1 + poly1)
+    # print("zero:", poly1 - poly1)
 
-    t = poly0 + poly1 + poly2
+    # t = poly0 + poly1 + poly2
 
-    print("constant", poly0 * poly0)
-    print("mult", poly1 * poly2, poly1.get_degree())
-    print("linear", poly1 + poly1)
-    print("second", poly2 + poly2)
-    print("full second degree", t)
+    # print("constant", poly0 * poly0)
+    # print("mult", poly1 * poly2, poly1.get_degree())
+    # print("linear", poly1 + poly1)
+    # print("second", poly2 + poly2)
+    # print("full second degree", t)
 
-    # q, r = divmod(a, b)
+
+    #B = poly1
+    A = poly0 + poly1 + poly2
+    B = poly1
+
+    #print(poly2.get_degree(nonzero=True))
+    q, r = divmod(A, B)
+
+    print(f"({A}) / {B} = ({q}) * ({B}) + {r}")
+
 
     # print("q", q, type(q))
     # print("r", r, type(r))
