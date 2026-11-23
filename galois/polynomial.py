@@ -41,6 +41,9 @@ class Coefficient:
         diff = abs(self.value - other.value)
         return diff >= 1e-7
 
+    def __call__(self, *args, **kwargs):
+        x = args[0]
+        return self.value
 
 class Degree:
     def __init__(self, new_value=0):
@@ -75,6 +78,11 @@ class Degree:
 
     def __ne__(self, other):
         return self.value != other.value
+
+    def __call__(self, *args, **kwargs):
+        x = args[0]
+
+        return x**self.value
 
 
 class Monomial:
@@ -143,6 +151,15 @@ class Monomial:
 
     def get_coefficient(self):
         return self.a.get_coefficient()
+
+    def __call__(self, *args, **kwargs):
+        x = args[0]
+
+        exponentiation = self.degree(x)
+        multiplication = self.a(x)
+
+        return multiplication*exponentiation
+
 
 
 class Polynomial:
@@ -245,7 +262,7 @@ class Polynomial:
         for degree in both_keys:
             A = self.monomials[degree]
             B = other.monomials[degree]
-            print("A", A, "B", B)
+            #print("A", A, "B", B)
             if A != B:
                 return True
 
@@ -289,24 +306,23 @@ class Polynomial:
 
             _, jaettava_termi = remainder.get_n_leading_terms(remainder.get_degree())[0]
 
-            print("while loop, Remainder:", remainder, "vs. Zero items():",
-                  *Zero.monomials.values())
+            #print("while loop, Remainder:", remainder, "vs. Zero items():", *Zero.monomials.values())
 
             uusi_termi = jaettava_termi / jakava_termi
             new_polyterm = Polynomial.from_monomials({uusi_termi.get_degree(): uusi_termi})
 
-            print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
-            print("\tjakava_termi", jakava_termi, "ja koko jakaja", denominator)
-            print("-"*80)
-            print("\tnew_polyterm", new_polyterm)
-            print("\tquotient", quotient)
+            #print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
+            #print("\tjakava_termi", jakava_termi, "ja koko jakaja", denominator)
+            #print("-"*80)
+            #print("\tnew_polyterm", new_polyterm)
+            #print("\tquotient", quotient)
             quotient = quotient + new_polyterm
-            print("\tquotient+new_polyterm:", quotient)
-            print("\tremainder", remainder)
+            #print("\tquotient+new_polyterm:", quotient)
+            #print("\tremainder", remainder)
             remainder = remainder - new_polyterm * denominator
-            print("\t\tnew_polyterm*denominator", new_polyterm*denominator)
-            print("\tremainder - new_polyterm*denominator", remainder)
-            print()
+            #print("\t\tnew_polyterm*denominator", new_polyterm*denominator)
+            #print("\tremainder - new_polyterm*denominator", remainder)
+            #print()
 
         return quotient, remainder
 
@@ -332,6 +348,15 @@ class Polynomial:
                 to_print.append(f"{monomial}")
 
         return " + ".join(to_print)
+
+    def __call__(self, *args, **kwargs):
+        x = args[0]
+        sum = 0
+        for monomial in self.monomials.values():
+            result = monomial(x)
+
+            sum += result
+        return sum
 
 
 if __name__ == '__main__':
@@ -371,11 +396,14 @@ if __name__ == '__main__':
     A = poly1 + poly2*poly2*poly2
     B = poly0 + poly1 + poly2
 
+    C = poly2
     #print(poly2.get_degree(nonzero=True))
-    q, r = divmod(A, B)
+    #q, r = divmod(A, B)
 
-    print(f"({A}) / ({B}) = ({q}) * ({B}) + {r}")
+    #print(f"({A}) / ({B}) = ({q}) * ({B}) + {r}")
 
+    #print(A(0))
+    #print(A(1))
 
     # print("q", q, type(q))
     # print("r", r, type(r))
