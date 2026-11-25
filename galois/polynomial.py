@@ -1,21 +1,42 @@
 import copy
+import dataclasses
+
+
+@dataclasses.dataclass(frozen=True)
+class CoefficientDomain:
+    characteristic: int
+    defining_polynomial: None
 
 
 class Coefficient:
-    def __init__(self, new_value=0):
-        self.value: int = new_value
+
+    def __init__(self, new_field=CoefficientDomain(characteristic=0, defining_polynomial=None), new_value=0):
+        self.value = new_value
+        self.field = new_field
+
 
     def __add__(self, other):
-        new_value = self.value + other.value
-        return Coefficient(new_value=new_value)
+
+        print(self.field)
+        if self.field.characteristic:
+            new_value = self.value + other.value % self.field.characteristic
+        else:
+            new_value = self.value + other.value
+        return Coefficient(new_field=self.field, new_value=new_value)
 
     def __sub__(self, other):
-        new_value = self.value - other.value
-        return Coefficient(new_value=new_value)
+        if self.field.characteristic:
+            new_value = self.value - other.value % self.field.characteristic
+        else:
+            new_value = self.value - other.value
+        return Coefficient(new_field=self.field, new_value=new_value)
 
     def __mul__(self, other):
-        new_value = self.value * other.value
-        return Coefficient(new_value=new_value)
+        if self.field.characteristic:
+            new_value = self.value * other.value % self.field.characteristic
+        else:
+            new_value = self.value * other.value
+        return Coefficient(new_field=self.field, new_value=new_value)
 
     def __eq__(self, other):
         if isinstance(other, int):
@@ -24,9 +45,11 @@ class Coefficient:
             return self.value == other.get_coefficient()
 
     def __truediv__(self, other):
-        new_value = self.value / other.value
-        return Coefficient(new_value=new_value)
-
+        if self.field.characteristic:
+            new_value = self.value / other.value % self.field.characteristic
+        else:
+            new_value = self.value / other.value
+        return Coefficient(new_field=self.field, new_value=new_value)
     def __bool__(self):
         return bool(self.value)
 
@@ -44,6 +67,7 @@ class Coefficient:
     def __call__(self, *args, **kwargs):
         x = args[0]
         return self.value
+
 
 class Degree:
     def __init__(self, new_value=0):
@@ -82,7 +106,7 @@ class Degree:
     def __call__(self, *args, **kwargs):
         x = args[0]
 
-        return x**self.value
+        return x ** self.value
 
 
 class Monomial:
@@ -158,8 +182,7 @@ class Monomial:
         exponentiation = self.degree(x)
         multiplication = self.a(x)
 
-        return multiplication*exponentiation
-
+        return multiplication * exponentiation
 
 
 class Polynomial:
@@ -212,6 +235,8 @@ class Polynomial:
         if _token is not self._TOKEN:
             raise TypeError("Use Polynomial.from_tuples or Polynomial.from_monomials")
 
+
+        # is it really the task for the Polynomial to distribute the field?
         new_monomials_for_poly = Polynomial.summate(values)
 
         if not new_monomials_for_poly:
@@ -227,7 +252,7 @@ class Polynomial:
             for degree, B in other.monomials.items():
                 A = self.monomials.get(degree)
                 if A is None:
-                    A = Monomial(Coefficient(0), new_degree=Degree(degree))
+                    A = Monomial(Coefficient(new_value=0), new_degree=Degree(degree))
                 new_monomials[degree] = A + B
 
             return Polynomial.from_monomials(new_monomials)
@@ -238,11 +263,10 @@ class Polynomial:
         for degree, B in other.monomials.items():
             A = self.monomials.get(degree)
             if A is None:
-                A = Monomial(Coefficient(0), new_degree=Degree(degree))
+                A = Monomial(Coefficient(new_value=0), new_degree=Degree(degree))
             new_monomials[degree] = A - B
 
         return Polynomial.from_monomials(new_monomials)
-
 
     def __ne__(self, other):
 
@@ -250,19 +274,18 @@ class Polynomial:
         a_zeros = tuple(self.monomials.keys() - both_keys)
         b_zeros = tuple(other.monomials.keys() - both_keys)
 
-
         for degree in a_zeros:
-            if self.monomials[degree] != Monomial(Coefficient(0), new_degree=Degree(degree)):
+            if self.monomials[degree] != Monomial(Coefficient(new_value=0), new_degree=Degree(degree)):
                 return True
 
         for degree in b_zeros:
-            if other.monomials[degree] != Monomial(Coefficient(0), new_degree=Degree(degree)):
+            if other.monomials[degree] != Monomial(Coefficient(new_value=0), new_degree=Degree(degree)):
                 return True
 
         for degree in both_keys:
             A = self.monomials[degree]
             B = other.monomials[degree]
-            #print("A", A, "B", B)
+
             if A != B:
                 return True
 
@@ -283,7 +306,7 @@ class Polynomial:
 
     def get_n_leading_terms(self, n):
         highest = self.get_monomials_from_highest_deg()
-        return highest[0:n+1]
+        return highest[0:n + 1]
 
     def __divmod__(self, other):
 
@@ -303,26 +326,25 @@ class Polynomial:
         _, jakava_termi = denominator.get_n_leading_terms(deg_den)[0]
 
         while remainder != Zero and remainder.get_degree() >= denominator.get_degree():
-
             _, jaettava_termi = remainder.get_n_leading_terms(remainder.get_degree())[0]
 
-            #print("while loop, Remainder:", remainder, "vs. Zero items():", *Zero.monomials.values())
+            # print("while loop, Remainder:", remainder, "vs. Zero items():", *Zero.monomials.values())
 
             uusi_termi = jaettava_termi / jakava_termi
             new_polyterm = Polynomial.from_monomials({uusi_termi.get_degree(): uusi_termi})
 
-            #print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
-            #print("\tjakava_termi", jakava_termi, "ja koko jakaja", denominator)
-            #print("-"*80)
-            #print("\tnew_polyterm", new_polyterm)
-            #print("\tquotient", quotient)
+            # print("\tjaettava termi", jaettava_termi, "ja remainderin aste", remainder.get_degree())
+            # print("\tjakava_termi", jakava_termi, "ja koko jakaja", denominator)
+            # print("-"*80)
+            # print("\tnew_polyterm", new_polyterm)
+            # print("\tquotient", quotient)
             quotient = quotient + new_polyterm
-            #print("\tquotient+new_polyterm:", quotient)
-            #print("\tremainder", remainder)
+            # print("\tquotient+new_polyterm:", quotient)
+            # print("\tremainder", remainder)
             remainder = remainder - new_polyterm * denominator
-            #print("\t\tnew_polyterm*denominator", new_polyterm*denominator)
-            #print("\tremainder - new_polyterm*denominator", remainder)
-            #print()
+            # print("\t\tnew_polyterm*denominator", new_polyterm*denominator)
+            # print("\tremainder - new_polyterm*denominator", remainder)
+            # print()
 
         return quotient, remainder
 
@@ -333,9 +355,9 @@ class Polynomial:
         else:
             data = self.monomials
 
-        #try:
+        # try:
         highest = max(data)
-        #except ValueError:
+        # except ValueError:
         #    highest = 0
         return highest
 
@@ -353,24 +375,18 @@ class Polynomial:
         x = args[0]
         sum = 0
         for monomial in self.monomials.values():
+
+            # the sum should be reduced in the field too
             result = monomial(x)
 
             sum += result
         return sum
 
 
-if __name__ == '__main__':
-    # poly1 = Polynomial.from_tuples((1, 1, -2, 0, 0, 5))
-    # poly2 = Polynomial.from_tuples((-1, -1, -2, 0, 0, 5))
 
-    # print(poly1)
-    # print(poly2)
-    # t = poly1 * poly2
-    # print(poly1)
-    # print(poly2)
-    # print(t)
-    # a = Polynomial.from_tuples((2, 2))
-    # b = Polynomial.from_tuples((2,))
+
+
+if __name__ == '__main__':
 
     C = Monomial(Coefficient(new_value=1), Degree(0))
     X = Monomial(Coefficient(new_value=1), Degree(1))
@@ -380,30 +396,20 @@ if __name__ == '__main__':
     poly1 = Polynomial.from_monomials({1: X})
     poly2 = Polynomial.from_monomials({2: X2})
 
-    # print("double:", poly1 + poly1)
-    # print("zero:", poly1 - poly1)
+    A = poly1 + poly2 * poly2 * poly2
+    #B = poly0 + poly1 + poly2
 
-    # t = poly0 + poly1 + poly2
+    #C = poly2
 
-    # print("constant", poly0 * poly0)
-    # print("mult", poly1 * poly2, poly1.get_degree())
-    # print("linear", poly1 + poly1)
-    # print("second", poly2 + poly2)
-    # print("full second degree", t)
+    GF2 = CoefficientDomain(characteristic=2, defining_polynomial=None)
 
+    # print(poly2.get_degree(nonzero=True))
+    # q, r = divmod(A, B)
 
-    #B = poly1
-    A = poly1 + poly2*poly2*poly2
-    B = poly0 + poly1 + poly2
+    # print(f"({A}) / ({B}) = ({q}) * ({B}) + {r}")
 
-    C = poly2
-    #print(poly2.get_degree(nonzero=True))
-    #q, r = divmod(A, B)
-
-    #print(f"({A}) / ({B}) = ({q}) * ({B}) + {r}")
-
-    #print(A(0))
-    #print(A(1))
+    print(poly0(0))
+    # print(A(1))
 
     # print("q", q, type(q))
     # print("r", r, type(r))
